@@ -24,14 +24,14 @@ https://kidapu.github.io/Julius-Wasm/
 
 ```bash
 # 1. Emscripten SDK セットアップ
-./scripts/setup-emsdk.sh
+./build-scripts/setup-emsdk.sh
 source ./emsdk/emsdk_env.sh
 
 # 2. Julius ソースをクローン（初回のみ）
 git clone https://github.com/julius-speech/julius.git src/julius
 
 # 3. WASM ビルド
-./scripts/build-julius-wasm.sh
+./build-scripts/build.sh
 ```
 
 ### 出力ファイル
@@ -122,19 +122,19 @@ julius.callMain([
 ## 構造
 
 ```
-04-julius-wasm/
-├── scripts/              # ビルドスクリプト
-│   ├── setup-emsdk.sh    # Emscripten SDK セットアップ
-│   └── build-julius-wasm.sh  # WASM ビルド
-├── src/
-│   ├── julius/           # Julius ソース (git clone)
-│   └── js/               # JavaScript ラッパー
-│       ├── julius-fa.js  # Julius FA クラス
-│       └── hiragana-to-phoneme.js  # ひらがな→音素変換
-├── models/               # 日本語音響モデル
+Julius-Wasm/
+├── index.html            # デモページ (GitHub Pages)
 ├── dist/                 # ビルド成果物
-└── test/                 # テストページ
-    └── index.html        # デモUI
+│   ├── julius.js
+│   ├── julius.wasm
+│   └── julius.data
+├── src/js/               # JavaScript ラッパー
+│   ├── julius-fa.js
+│   └── hiragana-to-phoneme.js
+├── models/               # 日本語音響モデル
+└── build-scripts/        # ビルドスクリプト（実行時は不要）
+    ├── setup-emsdk.sh
+    └── build.sh
 ```
 
 ## 技術詳細
