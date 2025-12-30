@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Emscripten SDK (user setup)
+emsdk/
+
+# Julius source (git clone)
+src/julius/
+
+# Node.js
+node_modules/
+
+# IDE
+.vscode/
+.idea/

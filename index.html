@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Julius WASM - 発音リズム解析</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@100..900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Noto Sans JP', sans-serif;
+      background: #ffffff;
+      min-height: 100vh;
+      color: #333;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      text-align: center;
+      margin-bottom: 30px;
+      color: #333;
+    }
+
+    h2 {
+      font-size: 1.2rem;
+      color: #555;
+      margin-bottom: 15px;
+    }
+
+    .input-section {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .text-input {
+      padding: 12px 20px;
+      font-size: 1.2rem;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      background: #fff;
+      color: #333;
+      width: 300px;
+      text-align: center;
+    }
+
+    .text-input:focus {
+      outline: none;
+      border-color: #0099cc;
+    }
+
+    .text-input:disabled {
+      opacity: 0.5;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      padding: 14px 30px;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn.record {
+      background: #ff4757;
+      color: #fff;
+    }
+
+    .btn.record:hover:not(:disabled) {
+      background: #ff3344;
+    }
+
+    .btn.stop {
+      background: #ffa502;
+      color: #fff;
+    }
+
+    .btn.play {
+      background: #0099cc;
+      color: #fff;
+    }
+
+    .btn.play:hover:not(:disabled) {
+      background: #00b8d4;
+    }
+
+    .status {
+      text-align: center;
+      height: 30px;
+      margin-bottom: 20px;
+    }
+
+    .recording {
+      color: #ff4757;
+      animation: pulse 0.5s infinite;
+    }
+
+    .analyzing {
+      color: #ffa502;
+    }
+
+    .error {
+      color: #ff4757;
+    }
+
+    .success {
+      color: #2ed573;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .hiragana-display {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin: 40px 0;
+      min-height: 150px;
+      align-items: center;
+    }
+
+    .hiragana-char {
+      font-size: 4rem;
+      font-weight: 400;
+      padding: 15px 25px;
+      border-radius: 12px;
+      transition: font-size 0.15s ease-out, font-weight 0.15s ease-out, color 0.1s ease-out;
+      position: relative;
+      background: #f5f5f5;
+      color: #999;
+    }
+
+    .hiragana-char.waiting {
+      color: #999;
+    }
+
+    .hiragana-char.passed {
+      color: #2ed573;
+    }
+
+    .hiragana-char.current {
+      color: #ff6b00;
+      text-shadow: 0 0 20px rgba(255, 107, 0, 0.3);
+      background: #fff3e0;
+    }
+
+    .duration-label {
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.7rem;
+      color: #888;
+    }
+
+    .timeline {
+      background: #f5f5f5;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 30px 0;
+    }
+
+    .timeline-bar {
+      height: 50px;
+      background: #e0e0e0;
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .timeline-segment {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      background: rgba(0, 153, 204, 0.3);
+      border-right: 1px solid #999;
+      transition: all 0.1s;
+    }
+
+    .timeline-segment.active {
+      background: rgba(255, 107, 0, 0.4);
+    }
+
+    .details {
+      background: #f5f5f5;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 30px 0;
+    }
+
+    .detail-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .detail-table th,
+    .detail-table td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .detail-table th {
+      color: #0099cc;
+      font-weight: normal;
+    }
+
+    .char-cell {
+      font-size: 1.5rem;
+    }
+
+    .duration-bar {
+      height: 16px;
+      background: linear-gradient(90deg, #2ed573, #ffa502);
+      border-radius: 4px;
+    }
+
+    .debug-info {
+      background: #fff8e1;
+      border: 1px solid #ffcc80;
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+
+    .debug-current {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .debug-char {
+      font-size: 3rem;
+      font-weight: bold;
+      color: #ff6b00;
+    }
+
+    .debug-values {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 0.9rem;
+    }
+
+    .debug-values strong {
+      color: #0099cc;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>発音リズム解析 <small style="font-size: 0.5em; color: #999;">(WASM版)</small></h1>
+
+    <!-- テキスト入力 -->
+    <div class="input-section">
+      <input
+        type="text"
+        id="textInput"
+        value="こんにちは"
+        placeholder="ひらがなを入力"
+        class="text-input"
+      />
+    </div>
+
+    <!-- 録音ボタン -->
+    <div class="controls">
+      <button id="recordBtn" class="btn record">録音開始</button>
+      <button id="playBtn" class="btn play hidden">再生</button>
+    </div>
+
+    <!-- 状態表示 -->
+    <div class="status" id="status"></div>
+
+    <!-- ひらがな表示 -->
+    <div class="hiragana-display" id="hiraganaDisplay"></div>
+
+    <!-- タイムライン -->
+    <div class="timeline hidden" id="timelineSection">
+      <h2>タイムライン</h2>
+      <div class="timeline-bar" id="timelineBar"></div>
+    </div>
+
+    <!-- デバッグ情報 -->
+    <div class="debug-info hidden" id="debugInfo">
+      <div class="debug-current">
+        <span class="debug-char" id="debugChar"></span>
+        <div class="debug-values" id="debugValues"></div>
+      </div>
+    </div>
+
+    <!-- 詳細テーブル -->
+    <div class="details hidden" id="detailsSection">
+      <h2>詳細</h2>
+      <table class="detail-table">
+        <thead>
+          <tr>
+            <th>文字</th>
+            <th>開始</th>
+            <th>終了</th>
+            <th>長さ</th>
+            <th>音量</th>
+            <th>ピッチ</th>
+            <th>長さ（相対）</th>
+          </tr>
+        </thead>
+        <tbody id="detailsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    import { hiraganaToPhonemes, generateDict, generateDfa } from './src/js/hiragana-to-phoneme.js';
+
+    const textInput = document.getElementById('textInput');
+    const recordBtn = document.getElementById('recordBtn');
+    const playBtn = document.getElementById('playBtn');
+    const statusEl = document.getElementById('status');
+    const hiraganaDisplay = document.getElementById('hiraganaDisplay');
+    const timelineSection = document.getElementById('timelineSection');
+    const timelineBar = document.getElementById('timelineBar');
+    const debugInfo = document.getElementById('debugInfo');
+    const debugChar = document.getElementById('debugChar');
+    const debugValues = document.getElementById('debugValues');
+    const detailsSection = document.getElementById('detailsSection');
+    const detailsBody = document.getElementById('detailsBody');
+
+    let julius = null;
+    let audioBlob = null;
+    let audioArrayBuffer = null;
+    let audioSamples = null;  // Float32Array of decoded samples
+    let sampleRate = 16000;
+    let isRecording = false;
+    let isPlaying = false;
+    let mediaRecorder = null;
+    let audioContext = null;
+    let juliusOutputBuffer = [];
+    let analysisResult = null;
+    let currentIdx = -1;
+
+    // ピッチ検出 (autocorrelation)
+    function detectPitch(samples, sampleRate) {
+      const SIZE = samples.length;
+      const MAX_SAMPLES = Math.floor(SIZE / 2);
+      let bestOffset = -1;
+      let bestCorrelation = 0;
+      let foundGoodCorrelation = false;
+
+      // 無音チェック
+      let rms = 0;
+      for (let i = 0; i < SIZE; i++) {
+        rms += samples[i] * samples[i];
+      }
+      rms = Math.sqrt(rms / SIZE);
+      if (rms < 0.01) return 0;
+
+      for (let offset = 50; offset < MAX_SAMPLES; offset++) {
+        let correlation = 0;
+        for (let i = 0; i < MAX_SAMPLES; i++) {
+          correlation += Math.abs(samples[i] - samples[i + offset]);
+        }
+        correlation = 1 - correlation / MAX_SAMPLES;
+
+        if (correlation > 0.9 && correlation > bestCorrelation) {
+          bestCorrelation = correlation;
+          bestOffset = offset;
+          foundGoodCorrelation = true;
+        } else if (foundGoodCorrelation) {
+          break;
+        }
+      }
+
+      if (bestOffset === -1) return 0;
+      return sampleRate / bestOffset;
+    }
+
+    // 音量計算 (RMS → dB)
+    function calculateVolume(samples) {
+      let sum = 0;
+      for (let i = 0; i < samples.length; i++) {
+        sum += samples[i] * samples[i];
+      }
+      const rms = Math.sqrt(sum / samples.length);
+      if (rms < 0.0001) return -60;
+      return 20 * Math.log10(rms);
+    }
+
+    // セグメントの音量・ピッチ解析
+    function analyzeSegmentAudio(segment) {
+      if (!audioSamples) return { volume_db: -30, pitch_hz: 0 };
+
+      const startSample = Math.floor(segment.start * sampleRate);
+      const endSample = Math.floor(segment.end * sampleRate);
+      const segmentSamples = audioSamples.slice(startSample, endSample);
+
+      if (segmentSamples.length < 100) return { volume_db: -30, pitch_hz: 0 };
+
+      const volume_db = calculateVolume(segmentSamples);
+      const pitch_hz = detectPitch(segmentSamples, sampleRate);
+
+      return { volume_db, pitch_hz };
+    }
+
+    // WASM 初期化
+    async function initJulius() {
+      statusEl.textContent = 'Julius WASM を初期化中...';
+      statusEl.className = 'status analyzing';
+
+      try {
+        const JuliusModule = (await import('./dist/julius.js')).default;
+
+        julius = await JuliusModule({
+          print: (text) => {
+            console.log('[Julius]', text);
+            juliusOutputBuffer.push(text);
+          },
+          printErr: (text) => console.log('[Julius stderr]', text),
+          locateFile: (path) => './dist/' + path,
+        });
+
+        statusEl.textContent = '';
+        console.log('Julius WASM initialized');
+      } catch (e) {
+        console.error('Julius init error:', e);
+        statusEl.textContent = 'WASM 初期化失敗: ' + e.message;
+        statusEl.className = 'status error';
+      }
+    }
+
+    // WebM → WAV 変換
+    async function convertToWav(blob) {
+      console.log('convertToWav: blob size =', blob.size, 'type =', blob.type);
+
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      const arrayBuffer = await blob.arrayBuffer();
+      console.log('convertToWav: arrayBuffer size =', arrayBuffer.byteLength);
+
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+      console.log('convertToWav: decoded audio', {
+        sampleRate: audioBuffer.sampleRate,
+        duration: audioBuffer.duration,
+        numberOfChannels: audioBuffer.numberOfChannels,
+        length: audioBuffer.length
+      });
+
+      // 元の音声データをチェック
+      const originalSamples = audioBuffer.getChannelData(0);
+      let origMax = 0, origMin = 0, origNonZero = 0;
+      for (let i = 0; i < originalSamples.length; i++) {
+        if (originalSamples[i] > origMax) origMax = originalSamples[i];
+        if (originalSamples[i] < origMin) origMin = originalSamples[i];
+        if (Math.abs(originalSamples[i]) > 0.001) origNonZero++;
+      }
+      console.log('convertToWav: original samples', { origMax, origMin, origNonZero, total: originalSamples.length });
+
+      const targetSampleRate = 16000;
+      const offlineContext = new OfflineAudioContext(
+        1,
+        Math.ceil(audioBuffer.duration * targetSampleRate),
+        targetSampleRate
+      );
+
+      const source = offlineContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(offlineContext.destination);
+      source.start(0);
+
+      const resampledBuffer = await offlineContext.startRendering();
+      console.log('convertToWav: resampled', {
+        sampleRate: resampledBuffer.sampleRate,
+        length: resampledBuffer.length
+      });
+
+      // リサンプル後のデータをチェック
+      const resampledSamples = resampledBuffer.getChannelData(0);
+      let resMax = 0, resMin = 0, resNonZero = 0;
+      for (let i = 0; i < resampledSamples.length; i++) {
+        if (resampledSamples[i] > resMax) resMax = resampledSamples[i];
+        if (resampledSamples[i] < resMin) resMin = resampledSamples[i];
+        if (Math.abs(resampledSamples[i]) > 0.001) resNonZero++;
+      }
+      console.log('convertToWav: resampled samples', { resMax, resMin, resNonZero, total: resampledSamples.length });
+
+      // 解析用にサンプルを保存
+      audioSamples = resampledBuffer.getChannelData(0);
+      sampleRate = resampledBuffer.sampleRate;
+
+      return encodeWAV(resampledBuffer);
+    }
+
+    // 音量 → フォントサイズ (大きい声 → 大きいフォント)
+    function getFontSize(segment) {
+      if (!analysisResult) return 4;
+      const volumes = analysisResult.map(s => s.volume_db);
+      const min = Math.min(...volumes);
+      const max = Math.max(...volumes);
+      const span = max - min;
+      if (span === 0) return 5;
+      const normalized = Math.max(0, Math.min(1, (segment.volume_db - min) / span));
+      return 4 + normalized * 3;  // 4rem 〜 7rem
+    }
+
+    // ピッチ → フォントウェイト (高いピッチ → 細い, 低いピッチ → 太い)
+    function getFontWeight(segment) {
+      if (!analysisResult || segment.pitch_hz === 0) return 400;
+      const pitches = analysisResult.map(s => s.pitch_hz).filter(p => p > 0);
+      if (pitches.length === 0) return 400;
+      const min = Math.min(...pitches);
+      const max = Math.max(...pitches);
+      const span = max - min;
+      if (span === 0) return 500;
+      const normalized = Math.max(0, Math.min(1, (segment.pitch_hz - min) / span));
+      return Math.round(900 - normalized * 800);  // 高い → 100, 低い → 900
+    }
+
+    function encodeWAV(audioBuffer) {
+      const sampleRate = audioBuffer.sampleRate;
+      const samples = audioBuffer.getChannelData(0);
+      const buffer = new ArrayBuffer(44 + samples.length * 2);
+      const view = new DataView(buffer);
+
+      const writeString = (offset, string) => {
+        for (let i = 0; i < string.length; i++) {
+          view.setUint8(offset + i, string.charCodeAt(i));
+        }
+      };
+
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + samples.length * 2, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeString(36, 'data');
+      view.setUint32(40, samples.length * 2, true);
+
+      let offset = 44;
+      for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        offset += 2;
+      }
+
+      return buffer;
+    }
+
+    // 録音ボタン
+    recordBtn.addEventListener('click', async () => {
+      if (isRecording) {
+        mediaRecorder.stop();
+        recordBtn.textContent = '録音開始';
+        recordBtn.className = 'btn record';
+        isRecording = false;
+        return;
+      }
+
+      try {
+        analysisResult = null;
+        currentIdx = -1;
+        hiraganaDisplay.innerHTML = '';
+        timelineSection.classList.add('hidden');
+        detailsSection.classList.add('hidden');
+        playBtn.classList.add('hidden');
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        const chunks = [];
+
+        mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+        mediaRecorder.onstop = async () => {
+          audioBlob = new Blob(chunks, { type: 'audio/webm' });
+          stream.getTracks().forEach(t => t.stop());
+
+          statusEl.textContent = '解析中...';
+          statusEl.className = 'status analyzing';
+
+          try {
+            audioArrayBuffer = await convertToWav(audioBlob);
+            await runAnalysis();
+          } catch (e) {
+            statusEl.textContent = 'エラー: ' + e.message;
+            statusEl.className = 'status error';
+          }
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+        recordBtn.textContent = '録音停止';
+        recordBtn.className = 'btn stop';
+        statusEl.innerHTML = '<span class="recording">録音中...</span>';
+      } catch (e) {
+        statusEl.textContent = 'マイクへのアクセスに失敗しました';
+        statusEl.className = 'status error';
+      }
+    });
+
+    // 解析
+    async function runAnalysis() {
+      if (!audioArrayBuffer || !julius) {
+        statusEl.textContent = '音声または WASM が未準備';
+        statusEl.className = 'status error';
+        return;
+      }
+
+      const text = textInput.value;
+      const { phonemes, hiraganaInfo } = hiraganaToPhonemes(text);
+      const dictContent = generateDict(phonemes);
+      const numWords = phonemes.length + 2;
+      const dfaContent = generateDfa(numWords);
+
+      const FS = julius.FS;
+      try { FS.mkdir('/work'); } catch (e) {}
+
+      FS.writeFile('/work/input.wav', new Uint8Array(audioArrayBuffer));
+      FS.writeFile('/work/input.dict', dictContent);
+      FS.writeFile('/work/input.dfa', dfaContent);
+      FS.writeFile('/work/filelist.txt', '/work/input.wav\n');
+
+      juliusOutputBuffer = [];
+
+      const args = [
+        '-h', '/models/hmmdefs_monof_mix16_gid.binhmm',
+        '-dfa', '/work/input.dfa',
+        '-v', '/work/input.dict',
+        '-input', 'rawfile',
+        '-filelist', '/work/filelist.txt',
+        '-palign',
+      ];
+
+      try {
+        julius.callMain(args);
+      } catch (e) {
+        console.error('Julius error:', e);
+      }
+
+      // パース
+      const segments = [];
+      let inPhonemeSection = false;
+
+      for (const line of juliusOutputBuffer) {
+        if (line.includes('=== begin forced alignment ===')) {
+          inPhonemeSection = true;
+          continue;
+        }
+        if (line.includes('=== end forced alignment ===')) {
+          inPhonemeSection = false;
+          continue;
+        }
+        if (inPhonemeSection) {
+          const match = line.match(/\[\s*(\d+)\s+(\d+)\]\s+[\d.-]+\s+(\S+)/);
+          if (match) {
+            segments.push({
+              start: parseInt(match[1]) * 0.01,
+              end: parseInt(match[2]) * 0.01,
+              phoneme: match[3],
+            });
+          }
+        }
+      }
+
+      if (segments.length > 0) {
+        const phonemeSegs = segments.filter(s => s.phoneme !== 'silB' && s.phoneme !== 'silE');
+        let phonemeIdx = 0;
+        const result = [];
+
+        for (const info of hiraganaInfo) {
+          const count = info.phonemes.length;
+          if (phonemeIdx + count <= phonemeSegs.length) {
+            const start = phonemeSegs[phonemeIdx].start;
+            const end = phonemeSegs[phonemeIdx + count - 1].end;
+            const seg = {
+              char: info.char,
+              start,
+              end,
+              duration: end - start,
+              phonemes: phonemeSegs.slice(phonemeIdx, phonemeIdx + count).map(p => p.phoneme),
+              volume_db: 0,
+              pitch_hz: 0,
+            };
+
+            // 音量・ピッチ解析
+            const audioInfo = analyzeSegmentAudio(seg);
+            seg.volume_db = audioInfo.volume_db;
+            seg.pitch_hz = audioInfo.pitch_hz;
+
+            result.push(seg);
+            phonemeIdx += count;
+          }
+        }
+
+        analysisResult = result;
+        console.log('Analysis result with audio:', result);
+        renderResult();
+        statusEl.textContent = '';
+        playBtn.classList.remove('hidden');
+      } else {
+        statusEl.textContent = 'アライメント結果が見つかりませんでした';
+        statusEl.className = 'status error';
+      }
+    }
+
+    // 結果描画
+    function renderResult() {
+      if (!analysisResult) return;
+
+      // ひらがな表示
+      hiraganaDisplay.innerHTML = '';
+      for (const seg of analysisResult) {
+        const div = document.createElement('div');
+        div.className = 'hiragana-char waiting';
+        div.innerHTML = `${seg.char}<span class="duration-label">${(seg.duration * 1000).toFixed(0)}ms</span>`;
+        hiraganaDisplay.appendChild(div);
+      }
+
+      // タイムライン
+      const timelineStart = analysisResult[0].start;
+      const timelineEnd = analysisResult[analysisResult.length - 1].end;
+      const timelineDuration = timelineEnd - timelineStart;
+
+      timelineBar.innerHTML = '';
+      for (const seg of analysisResult) {
+        const div = document.createElement('div');
+        div.className = 'timeline-segment';
+        div.style.left = ((seg.start - timelineStart) / timelineDuration * 100) + '%';
+        div.style.width = (seg.duration / timelineDuration * 100) + '%';
+        div.textContent = seg.char;
+        timelineBar.appendChild(div);
+      }
+      timelineSection.classList.remove('hidden');
+
+      // 詳細テーブル
+      const maxDuration = Math.max(...analysisResult.map(s => s.duration));
+      detailsBody.innerHTML = '';
+      for (const seg of analysisResult) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="char-cell">${seg.char}</td>
+          <td>${seg.start.toFixed(3)}s</td>
+          <td>${seg.end.toFixed(3)}s</td>
+          <td>${(seg.duration * 1000).toFixed(0)}ms</td>
+          <td>${seg.volume_db.toFixed(1)}dB</td>
+          <td>${seg.pitch_hz.toFixed(0)}Hz</td>
+          <td><div class="duration-bar" style="width: ${(seg.duration / maxDuration * 100)}%"></div></td>
+        `;
+        detailsBody.appendChild(tr);
+      }
+      detailsSection.classList.remove('hidden');
+    }
+
+    // 再生
+    playBtn.addEventListener('click', () => {
+      if (!analysisResult || !audioBlob || isPlaying) return;
+
+      isPlaying = true;
+      currentIdx = -1;
+
+      const chars = hiraganaDisplay.querySelectorAll('.hiragana-char');
+      const timelineSegs = timelineBar.querySelectorAll('.timeline-segment');
+      chars.forEach(c => {
+        c.className = 'hiragana-char waiting';
+        c.style.fontSize = '';
+        c.style.fontWeight = '';
+      });
+      timelineSegs.forEach(s => s.classList.remove('active'));
+      debugInfo.classList.remove('hidden');
+
+      const audio = new Audio(URL.createObjectURL(audioBlob));
+      audio.play();
+
+      const startTime = performance.now();
+
+      function updateAnimation() {
+        const currentTime = (performance.now() - startTime) / 1000;
+
+        for (let i = 0; i < analysisResult.length; i++) {
+          const seg = analysisResult[i];
+          const charEl = chars[i];
+          const timelineEl = timelineSegs[i];
+
+          if (currentTime >= seg.end) {
+            charEl.className = 'hiragana-char passed';
+            charEl.style.fontSize = '';
+            charEl.style.fontWeight = '';
+            timelineEl.classList.remove('active');
+          } else if (currentTime >= seg.start) {
+            charEl.className = 'hiragana-char current';
+            // Variable font animation
+            const fontSize = getFontSize(seg);
+            const fontWeight = getFontWeight(seg);
+            charEl.style.fontSize = fontSize + 'rem';
+            charEl.style.fontWeight = fontWeight;
+            timelineEl.classList.add('active');
+            currentIdx = i;
+
+            // デバッグ情報更新
+            debugChar.textContent = seg.char;
+            debugValues.innerHTML = `
+              <span>ピッチ: ${seg.pitch_hz.toFixed(0)}Hz</span>
+              <span>→ weight: <strong>${fontWeight}</strong></span>
+              <span>|</span>
+              <span>音量: ${seg.volume_db.toFixed(1)}dB</span>
+              <span>→ size: <strong>${fontSize.toFixed(1)}rem</strong></span>
+            `;
+          } else {
+            charEl.className = 'hiragana-char waiting';
+            charEl.style.fontSize = '';
+            charEl.style.fontWeight = '';
+            timelineEl.classList.remove('active');
+          }
+        }
+
+        if (!audio.paused && !audio.ended) {
+          requestAnimationFrame(updateAnimation);
+        }
+      }
+
+      requestAnimationFrame(updateAnimation);
+
+      audio.onended = () => {
+        isPlaying = false;
+        chars.forEach(c => {
+          c.className = 'hiragana-char passed';
+          c.style.fontSize = '';
+          c.style.fontWeight = '';
+        });
+        timelineSegs.forEach(s => s.classList.remove('active'));
+        debugInfo.classList.add('hidden');
+      };
+    });
+
+    // 初期化
+    initJulius();
+  </script>
+</body>
+</html>
