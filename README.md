@@ -11,11 +11,7 @@ Julius 音声認識エンジンを WebAssembly にコンパイルし、ブラウ
 
 ## デモ
 
-```bash
-cd /path/to/04-julius-wasm
-python -m http.server 8080
-# http://localhost:8080/test/ を開く
-```
+https://kidapu.github.io/Julius-Wasm/
 
 ## ビルド
 
@@ -174,10 +170,6 @@ emcc ... \
 - 録音からの WAV 変換が一部ブラウザで正常に動作しない場合がある
 - 長い音声（10秒以上）は処理に時間がかかる
 - カタカナ・漢字は非対応（ひらがなのみ）
-
-## 関連プロジェクト
-
-- [03-realtime-phoneme-front](../03-realtime-phoneme-front/) - サーバーサイド版（Python + Julius）
 
 ## ライセンス
 
