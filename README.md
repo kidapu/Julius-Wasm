@@ -34,14 +34,6 @@ git clone https://github.com/julius-speech/julius.git src/julius
 ./build-scripts/build.sh
 ```
 
-### 出力ファイル
-
-```
-dist/
-├── julius.js      # ES6 モジュール (88KB)
-├── julius.wasm    # WebAssembly バイナリ (510KB)
-└── julius.data    # HMM モデルデータ (3.5MB)
-```
 
 ## 使い方
 
